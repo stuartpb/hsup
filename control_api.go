@@ -5,13 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net")
-
-type ProcessStatus struct {
-	Status    string
-	IPAddress string
-	Port      int
-}
+)
 
 type ProcessStatus struct {
 	Status    string
