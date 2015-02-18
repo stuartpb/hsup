@@ -272,6 +272,9 @@ func (dd *LibContainerDynoDriver) Start(ex *Executor) error {
 		close(ex.initExitStatus)
 	}()
 
+	ex.IPAddress = subnet.Host()
+	ex.Port = port
+
 	return nil
 }
 

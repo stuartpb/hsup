@@ -104,6 +104,9 @@ func (dd *DockerDynoDriver) Start(ex *Executor) error {
 		OutputStream: os.Stdout,
 	})
 
+	ex.IPAddress = "ip.docker.driver.local"
+	ex.Port = 5000
+
 	return nil
 }
 
