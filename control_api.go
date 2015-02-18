@@ -13,6 +13,12 @@ type ProcessStatus struct {
 	Port      int
 }
 
+type ProcessStatus struct {
+	Status    string
+	IPAddress string
+	Port      int
+}
+
 type StatusResponse struct {
 	Processes map[string]ProcessStatus
 }
