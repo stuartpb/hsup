@@ -291,12 +291,6 @@ func fromOptions(dst *hsup.Startup) (args []string) {
 		}
 	}
 
-	dst.Driver = dynoDriver
-	dst.App.Name = *appName
-	dst.OneShot = *oneShot
-	dst.StartNumber = *startNumber
-	dst.ControlSocket = *controlSocket
-
 	if *bind != "" {
 		dst.Binds = bindParse(*bind)
 	}
