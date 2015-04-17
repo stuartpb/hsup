@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
-	"strconv")
+	"strconv"
+)
 
 type DockerDynoDriver struct {
 	d *Docker
