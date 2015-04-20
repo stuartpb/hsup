@@ -26,6 +26,7 @@ type StopResponse struct {
 }
 
 type ControlAPI struct {
+	*http.ServeMux
 	processes *Processes
 }
 
@@ -41,62 +42,57 @@ func (c *ControlAPI) Tee(procs <-chan *Processes) <-chan *Processes {
 	return out
 }
 
-func (c *ControlAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "GET":
-		c.ServeGET(w, r)
-	case "POST":
-		c.ServePOST(w, r)
+func (c *ControlAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		return
 	}
+
+	resp := StatusResponse{make(map[string]ProcessStatus)}
+	for _, e := range c.processes.Executors {
+		resp.Processes[e.ProcessType] = ProcessStatus{
+			IPAddress: e.IPAddress,
+			Port:      e.Port,
+			Status:    e.State.String(),
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
-func (c *ControlAPI) ServeGET(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path {
-	case "/status":
-		resp := StatusResponse{make(map[string]ProcessStatus)}
+func (c *ControlAPI) handleControlStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		return
+	}
+
+	stop := new(StopRequest)
+	if err := json.NewDecoder(r.Body).Decode(stop); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	stopped := []string{}
+	for _, p := range stop.Processes {
 		for _, e := range c.processes.Executors {
-			resp.Processes[e.ProcessType] = ProcessStatus{
-				IPAddress: e.IPAddress,
-				Port:      e.Port,
-				Status:    e.State.String(),
+			if e.ProcessType == p {
+				log.Printf("Retiring %s", p)
+				e.Trigger(Retire)
+				stopped = append(stopped, p)
 			}
 		}
-		enc := json.NewEncoder(w)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		enc.Encode(resp)
 	}
-}
 
-func (c *ControlAPI) ServePOST(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path {
-	case "/control/stop":
-		stop := new(StopRequest)
-		err := json.NewDecoder(r.Body).Decode(stop)
-		if err != nil {
-			w.WriteHeader(500)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		stopped := []string{}
-		for _, p := range stop.Processes {
-			for _, e := range c.processes.Executors {
-				if e.ProcessType == p {
-					log.Printf("Retiring %s", p)
-					e.Trigger(Retire)
-					stopped = append(stopped, p)
-				}
-			}
-		}
-		enc := json.NewEncoder(w)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		enc.Encode(StopResponse{stopped})
-	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(StopResponse{stopped})
 }
 
 func StartControlAPI(socket string, processes <-chan *Processes) <-chan *Processes {
-	api := &ControlAPI{}
+	api := &ControlAPI{http.NewServeMux(), nil}
+	api.HandleFunc("/control/stop", api.handleControlStop)
+	api.HandleFunc("/status", api.handleStatus)
+
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		panic(err)
