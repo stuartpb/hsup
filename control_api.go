@@ -89,14 +89,19 @@ func (c *ControlAPI) handleControlStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func StartControlAPI(socket string, processes <-chan *Processes) <-chan *Processes {
-	api := &ControlAPI{http.NewServeMux(), nil}
-	api.HandleFunc("/control/stop", api.handleControlStop)
-	api.HandleFunc("/status", api.handleStatus)
-
+	api := newControlAPI()
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		panic(err)
 	}
 	go http.Serve(listener, api)
 	return api.Tee(processes)
+}
+
+func newControlAPI() *ControlAPI {
+	api := &ControlAPI{http.NewServeMux(), nil}
+	api.HandleFunc("/control/stop", api.handleControlStop)
+	api.HandleFunc("/status", api.handleStatus)
+
+	return api
 }
